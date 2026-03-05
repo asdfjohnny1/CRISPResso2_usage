@@ -1,0 +1,128 @@
+###############################################################################
+# CRISPResso2 HPC GUIDE
+#
+# Sections:
+#   1) Installation
+#   2) Testing
+#   3) Running on real data
+###############################################################################
+
+###############################################################################
+# PART 1 — INSTALLING CRISPResso2
+###############################################################################
+
+# Load conda module (try whichever exists on your HPC)
+module load python/anaconda/2023.07/3.11.4
+
+# Create a clean environment (only needed once)
+conda create -n crispresso2_env python=3.11 -y
+
+# Activate the environment
+source activate crispresso2_env
+
+# Install CRISPResso2 
+pip install "git+https://github.com/pinellolab/CRISPResso2@v2.3.3"
+
+# Confirm installation worked
+CRISPResso --version
+CRISPResso --help
+
+# Response is a bit slow on mine .. not sure why 
+
+
+###############################################################################
+# PART 2 — TESTING THE INSTALLATION
+# This uses a tiny synthetic FASTQ to confirm everything runs correctly
+###############################################################################
+
+# Make a test directory
+mkdir -p /gpfs/home/jah14xyu/Postdoc/CRISPResso/crispresso2_test
+cd /gpfs/home/jah14xyu/Postdoc/CRISPResso/crispresso2_test
+
+# create an amplicon (120 bp) and an embedded 20 nt guide
+AMPLICONSEQ="AAACCCAAACCCAAACCCAAACCCAAACCCAAACCCAAACCCAAACCCGGGTTTGGGTTTGGGTTTGGGTTTGGGTTTGGGTTTGGGTTTGGGTTTGGGTTT"
+GUIDESEQ="CCCAAACCCAAACCCAAACC"  # 20 nt, present in the amplicon above
+
+# Create a minimal FASTQ containing exactly the amplicon as the read
+cat > test.fastq <<EOF
+@read1
+${AMPLICONSEQ}
++
+$(python - <<'PY'
+seq = """'"${AMPLICONSEQ}"'"""
+print("F"*len(seq))
+PY
+)
+EOF
+
+gzip -f test.fastq
+
+# Run CRISPResso2
+CRISPResso \
+  --fastq_r1 test.fastq.gz \
+  --amplicon_seq "${AMPLICONSEQ}" \
+  --guide_seq "${GUIDESEQ}" \
+  --output_folder test_output \
+  --name synthetic_test \
+  --n_processes 1
+
+# Inspect output
+ls -lh test_output
+
+
+###############################################################################
+# PART 3 — RUNNING ON REAL DATA
+###############################################################################
+
+# Activate environment (if not already active)
+module load python/anaconda/2023.07/3.8
+source activate crispresso2_env
+
+###############################################################################
+# A) SINGLE-END EXAMPLE
+###############################################################################
+
+# Edit these variables
+FASTQ_R1="/path/to/sample_R1.fastq.gz"
+AMPLICONSEQ="YOUR_FULL_AMPLICON_SEQUENCE_5_TO_3"
+GUIDESEQ="YOUR_GUIDE_SEQUENCE_NO_PAM"
+OUTDIR="/path/to/output/sample1"
+
+# Create output directory
+mkdir -p "$OUTDIR"
+
+# Run CRISPResso2
+CRISPResso \
+  --fastq_r1 "$FASTQ_R1" \
+  --amplicon_seq "$AMPLICONSEQ" \
+  --guide_seq "$GUIDESEQ" \
+  --output_folder "$OUTDIR" \
+  --name "sample1" \
+  --n_processes 4
+
+
+###############################################################################
+# B) PAIRED-END EXAMPLE
+###############################################################################
+
+# Edit these variables
+FASTQ_R1="/path/to/sample_R1.fastq.gz"
+FASTQ_R2="/path/to/sample_R2.fastq.gz"
+AMPLICONSEQ="YOUR_FULL_AMPLICON_SEQUENCE_5_TO_3"
+GUIDESEQ="YOUR_GUIDE_SEQUENCE_NO_PAM"
+OUTDIR="/path/to/output/sample1"
+
+# Create output directory
+mkdir -p "$OUTDIR"
+
+# Run CRISPResso2
+CRISPResso \
+  --fastq_r1 "$FASTQ_R1" \
+  --fastq_r2 "$FASTQ_R2" \
+  --amplicon_seq "$AMPLICONSEQ" \
+  --guide_seq "$GUIDESEQ" \
+  --output_folder "$OUTDIR" \
+  --name "sample1" \
+  --n_processes 8
+
+
